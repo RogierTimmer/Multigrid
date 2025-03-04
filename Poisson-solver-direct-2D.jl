@@ -17,7 +17,7 @@ Dirichlet_bottom = 0.0
 Dirichlet_top = 6.0
 
 # Initialize Laplacian matrix and right-hand side
-A = zeros(N, N)
+A = zeros(Float32, N, N)
 f = zeros(N)
 
 # Map (i, j) indices to 1D index
