@@ -36,3 +36,11 @@ Als de matrix A is opgesteld, kunnen we dit oplossen met behulp van een directe 
 
 === Directe limitaties met de directe solver.
 Er is geprobeerd om dit te implementeren voor een 2D grid van 201x201 punten. De snelheid was wat traag (ongeveer 2 minuten), maar het grote probleem was de opslag van de punten. Doordat elk punt gemapt is aan elk ander punt, krijg je een matrix A van 201*201 bij 201*201. Dit is een matrix van 40401 bij 40401, wat een groot geheugenverbruik met zich meebrengt. (ongeveer 15Gb...) wat klopt met de opslag van een 64-bit float (komt uit op ongeveer 75 bits). Dit moet beter! Eerste oplossing: 32-bit float gebruiken, dit scheelt al de helft en de precisie is toch niet nodig.
+
+=== CUDA implentatie
+Via de Jupiter notebook server van de UT, kun je CUDA gebruiken! Dus dat maar eens geprobeerd dmv ChatGPT. Dit werkte best wel goed. Hieronder een foto van het resultaat van mijn Poisson solver in CUDA.
+
+#figure(
+  image("Figures/Poisson-Jacobi-CUDA-HighComputing.png",width: 60%)
+)
+
