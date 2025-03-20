@@ -1,91 +1,129 @@
 using LinearAlgebra
 using Plots
+using SparseArrays
 
-# Parameters
-Nx = 11  # Number of grid points in x
-Ny = 11  # Number of grid points in y
-h = 1.0 # Grid spacing
+# ---------------- PARAMETERS ----------------
+Nx = 40
+Ny = 40
+h = 1.0
+N = Nx * Ny
 
-# Grid size
-N = Nx * Ny  # Total number of unknowns
-
-# Dirichlet boundary conditions
-Dirichlet_left = 0.0
-Dirichlet_right = 1.0
-Dirichlet_bottom = 0.0
-Dirichlet_top = 6.0
-
-# Initialize Laplacian matrix and right-hand side
-A = zeros(Float64, N, N)
-f = zeros(Float64, N)
-
-# Map (i, j) indices to 1D index
+# Grid index mapping
 index(i, j) = (j - 1) * Nx + i
 
-# Construct Laplacian matrix
-for j in 1:Ny
-    for i in 1:Nx
-        k = index(i, j)  # Current index
-        
-        if i == 1  # Left boundary (Dirichlet)
-            A[k, k] = 1.0
-            f[k] = Dirichlet_left
-        elseif i == Nx  # Right boundary (Dirichlet)
-            A[k, k] = 1.0
-            f[k] = Dirichlet_right
-        elseif j == 1  # Bottom boundary (Dirichlet)
-            A[k, k] = 1.0
-            f[k] = Dirichlet_bottom
-        elseif j == Ny  # Top boundary (Dirichlet)
-            A[k, k] = 1.0
-            f[k] = Dirichlet_top
-        else  # Interior points (Finite Difference Approximation)
-            A[k, k] = -4.0 / h^2
-            A[k, index(i-1, j)] = 1.0 / h^2  # Left neighbor
-            A[k, index(i+1, j)] = 1.0 / h^2  # Right neighbor
-            A[k, index(i, j-1)] = 1.0 / h^2  # Bottom neighbor
-            A[k, index(i, j+1)] = 1.0 / h^2  # Top neighbor
+# ---------------- LAPLACIAN FUNCTION ----------------
+function Laplacian_2D(Nx, Ny, h;
+    Dirichlet_left=nothing,
+    Dirichlet_right=nothing,
+    Dirichlet_bottom=nothing,
+    Dirichlet_top=nothing)
+
+    N = Nx * Ny
+    A = zeros(Float64, N, N)
+    index(i, j) = (j - 1) * Nx + i
+
+    for j in 1:Ny
+        for i in 1:Nx
+            k = index(i, j)
+
+            # Dirichlet boundary points
+            if (i == 1 && Dirichlet_left !== nothing) ||
+               (i == Nx && Dirichlet_right !== nothing) ||
+               (j == 1 && Dirichlet_bottom !== nothing) ||
+               (j == Ny && Dirichlet_top !== nothing)
+                A[k, k] = 1.0
+            else
+                # Interior stencil
+                A[k, k] = -4.0 / h^2
+                A[k, index(i-1, j)] = 1.0 / h^2
+                A[k, index(i+1, j)] = 1.0 / h^2
+                A[k, index(i, j-1)] = 1.0 / h^2
+                A[k, index(i, j+1)] = 1.0 / h^2
+            end
         end
     end
+    return A
 end
 
-# Jacobi Iteration Solver
-function jacobi_solver(A, b, tol=1e-10, max_iter=1000)
+
+# ---------------- BOUNDARY FUNCTION ----------------
+function boundary_2D(Nx, Ny, h;
+    Dirichlet_left=nothing,
+    Dirichlet_right=nothing,
+    Dirichlet_bottom=nothing,
+    Dirichlet_top=nothing)
+
+    N = Nx * Ny
+    f = zeros(Float64, N)
+    index(i, j) = (j - 1) * Nx + i
+
+    for j in 1:Ny
+        for i in 1:Nx
+            k = index(i, j)
+
+            if i == 1 && Dirichlet_left !== nothing
+                f[k] = Dirichlet_left
+            elseif i == Nx && Dirichlet_right !== nothing
+                f[k] = Dirichlet_right
+            elseif j == 1 && Dirichlet_bottom !== nothing
+                f[k] = Dirichlet_bottom
+            elseif j == Ny && Dirichlet_top !== nothing
+                f[k] = Dirichlet_top
+            end
+        end
+    end
+    return f
+end
+
+
+# ---------------- JACOBI SOLVER ----------------
+function jacobi_solver(A, b; tol=1e-10, max_iter=1000)
     x = zeros(size(b))
     x_new = similar(x)
-    
-    for iter in 1:max_iter
-        for i in eachindex(b)
-            s1 = sum(A[i, j] * x[j] for j in 1:i-1; init=0.0)
-            s2 = sum(A[i, j] * x[j] for j in i+1:length(b); init=0.0)
 
-            x_new[i] = (b[i] - s1 - s2) / A[i, i]
-        end
-        
+    D = diagm(0 => diag(A))
+    R = A - D
+
+    # Check for zero diagonal entries
+    if any(diag(D) .== 0)
+        error("Jacobi solver: Diagonal of A contains zero, cannot proceed.")
+    end
+
+    for iter in 1:max_iter
+        x_new .= (b .- R * x) ./ diag(D)
         if norm(x_new - x, Inf) < tol
-            println("Converged in $iter iterations.")
+            println("Jacobi converged in $iter iterations.")
             return x_new
         end
-        
         x .= x_new
     end
-    println("Reached max iterations.")
+    println("Jacobi reached max iterations.")
     return x
 end
 
-# Solve system
-solution = jacobi_solver(A, f)
+# ---------------- SOLVE SYSTEM ----------------
+A = Laplacian_2D(Nx, Ny, h; Dirichlet_bottom=0.0, Dirichlet_top=1.0)
+f = boundary_2D(Nx, Ny, h; Dirichlet_bottom=0.0, Dirichlet_top=1.0)
 
-# Compute error
-error = A * solution - f
-# Compute the L2 norm of the error
-error = norm(error, 2)
-println("Error:", error)
+# Jacobi solution
+u_jacobi = jacobi_solver(A, f)
 
-# Reshape solution back to 2D
-U = reshape(solution, Nx, Ny)
+# Direct solution
+u_direct = A \ f
 
-# Plot solution
-x = range(0, 1, length=Nx)
-y = range(0, 1, length=Ny)
-contourf(x, y, U', xlabel="x", ylabel="y", title="2D Poisson Equation Solution Jacobi", levels=20, color=:turbo)
+println("u_jacobi contains NaN: ", any(isnan, u_jacobi))
+println("u_direct contains NaN: ", any(isnan, u_direct))
+
+# ---------------- PLOTTING ----------------
+U_jacobi = reshape(u_jacobi, Nx, Ny)'  # Transpose to match (y, x)
+U_direct = reshape(u_direct, Nx, Ny)'
+
+x = range(0, stop=h*(Nx-1), length=Nx)
+y = range(0, stop=h*(Ny-1), length=Ny)
+
+
+# Note: 'contourf(x, y, U)' expects U[y,x] = rows = y-axis, columns = x-axis
+p1 = contourf(x, y, U_jacobi, xlabel="x", ylabel="y", title="Jacobi Solution", levels=20, color=:turbo)
+p2 = contourf(x, y, U_direct, xlabel="x", ylabel="y", title="Direct Solution", levels=20, color=:turbo)
+plot(p1, p2, layout=(1,2), size=(1000,400))
+
