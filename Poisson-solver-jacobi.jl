@@ -3,8 +3,8 @@ using Plots
 using SparseArrays
 
 # ---------------- PARAMETERS ----------------
-Nx = 40
-Ny = 40
+Nx = 7
+Ny = 7
 h = 1.0
 N = Nx * Ny
 
@@ -77,7 +77,7 @@ end
 
 
 # ---------------- JACOBI SOLVER ----------------
-function jacobi_solver(A, b; tol=1e-10, max_iter=1000)
+function jacobi_solver(A, b; tol=1e-10, max_iter=100)
     x = zeros(size(b))
     x_new = similar(x)
 
