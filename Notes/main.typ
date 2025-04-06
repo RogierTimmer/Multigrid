@@ -44,3 +44,5 @@ Via de Jupiter notebook server van de UT, kun je CUDA gebruiken! Dus dat maar ee
   image("Figures/Poisson-Jacobi-CUDA-HighComputing.png",width: 60%)
 )
 
+= Week 11
+== Gauss Seidel implementatie
