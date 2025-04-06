@@ -3,8 +3,8 @@ using Plots
 using SparseArrays
 
 # ---------------- PARAMETERS ----------------
-Nx = 50
-Ny = 50
+Nx = 10
+Ny = 5
 h = 1.0 / (Nx - 1)  # Grid spacing
 N = Nx * Ny
 π2 = 2π  # Precompute for efficiency
@@ -56,7 +56,7 @@ function rhs_2D(Nx, Ny, h)
 end
 
 # ---------------- JACOBI SOLVER ----------------
-function jacobi_solver(A, b; tol=1e-10, max_iter=1000, u_direct)
+function jacobi_solver(A, b; tol=1e-6, max_iter=1000, u_direct)
     x = zeros(size(b))
     x_new = similar(x)
     D = diagm(0 => diag(A))
@@ -67,7 +67,7 @@ function jacobi_solver(A, b; tol=1e-10, max_iter=1000, u_direct)
         x_new .= (b .- R * x) ./ diag(D)
         errorAprox[iter] = norm(x_new - u_direct, 2)  # Compute L2 norm error
         
-        if norm(x_new - x, Inf) < tol
+        if norm(x_new - x, 2) < tol
             println("Jacobi converged in $iter iterations.")
             return x_new, errorAprox[1:iter]  # Return only filled part of errorAprox
         end
@@ -80,7 +80,7 @@ end
 
 # ---------------- GAUSS-SEIDEL SOLVER ----------------
 
-function gauss_seidel_solver(x, A, b; tol=1e-10, max_iter=1000, u_direct=nothing)
+function gauss_seidel_solver(x, A, b; tol=1e-6, max_iter=1000, u_direct=nothing)
     N = length(b)
     errorAprox = zeros(max_iter)
 
@@ -96,6 +96,7 @@ function gauss_seidel_solver(x, A, b; tol=1e-10, max_iter=1000, u_direct=nothing
             for j in i+1:N
                 sum2 += A[i, j] * x[j]
             end
+            
 
             x[i] = (b[i] - sum1 - sum2) / A[i, i]
         end
@@ -105,7 +106,7 @@ function gauss_seidel_solver(x, A, b; tol=1e-10, max_iter=1000, u_direct=nothing
             errorAprox[iter] = norm(x - u_direct, 2)
         end
 
-        if norm(A * x - b, Inf) < tol
+        if norm(A * x - b, 2) < tol
             println("Gauss-Seidel converged in $iter iterations.")
             return x, errorAprox[1:iter]  # Return only filled part
         end
@@ -128,12 +129,12 @@ u_direct = A \ f
 
 # Jacobi solution
 u_jacobi, errorAprox = jacobi_solver(A, f; u_direct=u_direct)
-display(errorAprox)
+#display(errorAprox)
 
 # Gauss-Seidel solution
 x = zeros(N)  # Initial guess
 u_gauss_seidel, errorAprox_gs = gauss_seidel_solver(x, A, f; u_direct=u_direct)
-display(errorAprox_gs)
+#display(errorAprox_gs)
 
 # ---------------- PLOTTING ----------------
 U_jacobi = reshape(u_jacobi, Nx, Ny)'
