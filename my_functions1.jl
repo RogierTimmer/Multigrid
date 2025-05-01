@@ -86,43 +86,62 @@ function jacobi_solver_new(A_new, b, Nx, Ny; tol=1e-5, max_iter=100000)
     return x, errorAprox, max_iter  # Use max_iter here since the loop completed
 end
 
-# ---------------- GAUSS-SEIDEL SOLVER ----------------
 function gauss_seidel_solver_new(A_new, b, Nx ; tol=1e-5, max_iter=100000)
     N = length(b)
     x = zeros(Float64, N)
     x_old = similar(x)
     errorAprox = zeros(max_iter)
     iter = 0
+    residual = zeros(Float64, N)
 
     for iter in 1:max_iter
         x_old .= x
         for k in 1:N
             sum_neighbors = 0.0
             if k > Nx
-                sum_neighbors += A_new[k, 1] * x[k - Nx]  # Top neighbor
+                sum_neighbors += A_new[k, 1] * x[k - Nx]  # Top
             end
             if (k - 1) % Nx != 0
-                sum_neighbors += A_new[k, 2] * x[k - 1]  # Left neighbor
+                sum_neighbors += A_new[k, 2] * x[k - 1]  # Left
             end
             if k % Nx != 0
-                sum_neighbors += A_new[k, 4] * x[k + 1]  # Right neighbor
+                sum_neighbors += A_new[k, 4] * x[k + 1]  # Right
             end
             if k <= N - Nx
-                sum_neighbors += A_new[k, 5] * x[k + Nx]  # Bottom neighbor
+                sum_neighbors += A_new[k, 5] * x[k + Nx]  # Bottom
             end
             x[k] = (b[k] - sum_neighbors) / A_new[k, 3]
+        end
+
+        # Compute residual vector r = b - A*x
+        for k in 1:N
+            Axk = A_new[k, 3] * x[k]
+            if k > Nx
+                Axk += A_new[k, 1] * x[k - Nx]
+            end
+            if (k - 1) % Nx != 0
+                Axk += A_new[k, 2] * x[k - 1]
+            end
+            if k % Nx != 0
+                Axk += A_new[k, 4] * x[k + 1]
+            end
+            if k <= N - Nx
+                Axk += A_new[k, 5] * x[k + Nx]
+            end
+            residual[k] = b[k] - Axk
         end
 
         errorAprox[iter] = norm(x - x_old, 2)
         if errorAprox[iter] < tol
             println("Gauss-Seidel (new datatype) converged in $iter iterations.")
-            return x, errorAprox[1:iter], iter
+            return x, errorAprox[1:iter], iter, residual
         end
     end
 
     println("Gauss-Seidel (new datatype) reached max iterations.")
-    return x, errorAprox, iter
+    return x, errorAprox, iter, residual
 end
+
 
 # ---------------- PLOTTING FUNCTION ----------------
 function plot_contourf(u, Nx, Ny, h, title_str)
