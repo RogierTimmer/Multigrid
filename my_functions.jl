@@ -1,12 +1,4 @@
 using LinearAlgebra
-using Plots
-using LaTeXStrings
-
-# ---------------- PARAMETERS ----------------
-Nx = 300
-Ny = 300
-h = 1.0 / (Nx - 1)  # Grid spacing
-N = Nx * Ny
 
 # ---------------- LAPLACIAN FUNCTION ----------------
 function Laplacian_2D_new(Nx, Ny, h)
@@ -37,30 +29,6 @@ function Laplacian_2D_new(Nx, Ny, h)
     return A
 end
 
-# ---------------- CONVERT TO FULL MATRIX ----------------
-function convert_to_full_matrix(A_new, Nx, Ny)
-    N = Nx * Ny
-    A_full = zeros(Float64, N, N)
-    for j in 1:Ny
-        for i in 1:Nx
-            k = (j - 1) * Nx + i
-            if j > 1
-                A_full[k, k - Nx] = A_new[k, 1]  # Top neighbor
-            end
-            if i > 1
-                A_full[k, k - 1] = A_new[k, 2]  # Left neighbor
-            end
-            A_full[k, k] = A_new[k, 3]  # Center point
-            if i < Nx
-                A_full[k, k + 1] = A_new[k, 4]  # Right neighbor
-            end
-            if j < Ny
-                A_full[k, k + Nx] = A_new[k, 5]  # Bottom neighbor
-            end
-        end
-    end
-    return A_full
-end
 
 # ---------------- RIGHT-HAND SIDE FUNCTION ----------------
 function rhs_2D(Nx, Ny, h)
@@ -81,7 +49,7 @@ function rhs_2D(Nx, Ny, h)
 end
 
 # ---------------- JACOBI SOLVER ----------------
-function jacobi_solver_new(A_new, b; tol=1e-5, max_iter=10000)
+function jacobi_solver_new(A_new, b, Nx, Ny; tol=1e-5, max_iter=100000)
     N = length(b)
     x = zeros(Float64, N)
     x_new = similar(x)
@@ -109,21 +77,22 @@ function jacobi_solver_new(A_new, b; tol=1e-5, max_iter=10000)
         errorAprox[iter] = norm(x_new - x, 2)
         if errorAprox[iter] < tol
             println("Jacobi (new datatype) converged in $iter iterations.")
-            return x_new, errorAprox[1:iter]
+            return x_new, errorAprox[1:iter], iter
         end
         x .= x_new
     end
 
     println("Jacobi (new datatype) reached max iterations.")
-    return x, errorAprox
+    return x, errorAprox, max_iter  # Use max_iter here since the loop completed
 end
 
 # ---------------- GAUSS-SEIDEL SOLVER ----------------
-function gauss_seidel_solver_new(A_new, b; tol=1e-5, max_iter=10000)
+function gauss_seidel_solver_new(A_new, b, Nx ; tol=1e-5, max_iter=100000)
     N = length(b)
     x = zeros(Float64, N)
     x_old = similar(x)
     errorAprox = zeros(max_iter)
+    iter = 0
 
     for iter in 1:max_iter
         x_old .= x
@@ -147,12 +116,12 @@ function gauss_seidel_solver_new(A_new, b; tol=1e-5, max_iter=10000)
         errorAprox[iter] = norm(x - x_old, 2)
         if errorAprox[iter] < tol
             println("Gauss-Seidel (new datatype) converged in $iter iterations.")
-            return x, errorAprox[1:iter]
+            return x, errorAprox[1:iter], iter
         end
     end
 
     println("Gauss-Seidel (new datatype) reached max iterations.")
-    return x, errorAprox
+    return x, errorAprox, iter
 end
 
 # ---------------- PLOTTING FUNCTION ----------------
@@ -164,65 +133,3 @@ function plot_contourf(u, Nx, Ny, h, title_str)
              xlabel="x", ylabel="y", title=title_str,
              color=:viridis, aspect_ratio=1)
 end
-
-# ---------------- MAIN EXECUTION ----------------
-A = Laplacian_2D_new(Nx, Ny, h)
-f = rhs_2D(Nx, Ny, h)
-
-# Solve using Jacobi method
-u_jacobi_new, errorAprox_jacobi_new = jacobi_solver_new(A, f)
-plot_contourf(u_jacobi_new, Nx, Ny, h, "Jacobi Solution (Contour)")
-
-# Solve using Gauss-Seidel method
-u_gauss_seidel_new, errorAprox_gauss_seidel_new = gauss_seidel_solver_new(A, f)
-plot_contourf(u_gauss_seidel_new, Nx, Ny, h, "Gauss-Seidel Solution (Contour)")
-
-
-
-function exact_solution(Nx, Ny, h)
-    u_exact = zeros(Nx * Ny)
-    for j in 1:Ny
-        for i in 1:Nx
-            k = (j - 1) * Nx + i
-            x = (i - 1) * h
-            y = (j - 1) * h
-            u_exact[k] = sin(2π * x) * sin(2π * y)
-        end
-    end
-    return u_exact
-end
-
-u_exact = exact_solution(Nx, Ny, h)
-
-error_jacobi = norm(u_jacobi_new - u_exact, 2)
-error_gs     = norm(u_gauss_seidel_new - u_exact, 2)
-
-println("L2 error (Jacobi):       $error_jacobi")
-println("L2 error (Gauss-Seidel): $error_gs")
-
-function plot_error_contourf(u_numeric, u_exact, Nx, Ny, h, title_str)
-    error_grid = reshape(abs.(u_numeric .- u_exact)*1000, Nx, Ny)'
-    x = 0:h:(Nx - 1)*h
-    y = 0:h:(Ny - 1)*h
-    contourf(x, y, error_grid;
-             xlabel="x", ylabel="y", title=title_str,
-             color=:plasma, aspect_ratio=1, levels=20)
-end
-
-
-
-# Ensure both plots use the same color scale
-min_error = min(minimum(abs.(u_jacobi_new .- u_exact)), minimum(abs.(u_gauss_seidel_new .- u_exact))) * 1000
-max_error = max(maximum(abs.(u_jacobi_new .- u_exact)), maximum(abs.(u_gauss_seidel_new .- u_exact))) * 1000
-
-
-plot1 = contourf(0:h:(Nx - 1)*h, 0:h:(Ny - 1)*h, reshape(abs.(u_jacobi_new .- u_exact)*1000, Nx, Ny)',
-                 xlabel="x", ylabel="y", title="Error (Jacobi vs Exact) [x1000] \n  L2: $(round(error_jacobi, sigdigits=3)), Iterations: $(length(errorAprox_jacobi_new)) \n L_inf: $(round(norm(u_jacobi_new - u_exact, Inf),sigdigits=3)) Grid: $(Nx)x$(Ny)",
-                 color=:plasma, aspect_ratio=1, levels=20, clim=(min_error, max_error))
-
-
-plot2 = contourf(0:h:(Nx - 1)*h, 0:h:(Ny - 1)*h, reshape(abs.(u_gauss_seidel_new .- u_exact)*1000, Nx, Ny)',
-                 xlabel="x", ylabel="y", title="Error (Gauss-Seidel vs Exact) [x1000] \n L2: $(round(error_gs,sigdigits=3)), Iterations: $(length(errorAprox_gauss_seidel_new)) \n L_inf: $(round(norm(u_gauss_seidel_new - u_exact, Inf),sigdigits=3)) Grid: $(Nx)x$(Ny)",
-                 color=:plasma, aspect_ratio=1, levels=20, clim=(min_error, max_error))
-
-plot(plot1, plot2, layout=(1, 2), size=(1000, 500))
