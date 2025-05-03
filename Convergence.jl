@@ -4,7 +4,7 @@ using PlotlyJS
 
 include("my_functions.jl")
 
-plotlyjs();
+Plots.plotlyjs();
 
 function exact_solution(Nx, Ny, h)
     u_exact = zeros(Nx * Ny)
@@ -19,7 +19,7 @@ function exact_solution(Nx, Ny, h)
     return u_exact
 end
 
-Niter = 6
+Niter = 10
 error_jacobi = zeros(Niter)
 error_gs = zeros(Niter)
 GSiter = zeros(Niter)
@@ -52,9 +52,9 @@ end
 
 grid_sizes = [2^i for i in 1:Niter]
 
-plot(grid_sizes, Jiter, label="Jacobi iterations", color=:blue, yscale=:log10, xscale=:log10, marker=:circle, markersize=4, linewidth=2)
-plot!(grid_sizes, GSiter, label="Gauss-Seidel iterations", color=:red, yscale=:log10, xscale=:log10, marker=:square, markersize=4, linewidth=2)
-xlabel!("Grid size (Nx * Ny)")
-ylabel!("Number of iterations (log scale)")
-title!("Convergence Comparison")
-plot!(legend=:bottomright)
+Plots.plot(grid_sizes, Jiter, label="Jacobi iterations", color=:blue, yscale=:log10, xscale=:log10, marker=:circle, markersize=4, linewidth=2)
+Plots.plot!(grid_sizes, GSiter, label="Gauss-Seidel iterations", color=:red, yscale=:log10, xscale=:log10, marker=:square, markersize=4, linewidth=2)
+Plots.xlabel!("Grid size (Nx * Ny)")
+Plots.ylabel!("Number of iterations (log scale)")
+Plots.title!("Convergence Comparison")
+Plots.plot!(legend=:bottomright)
