@@ -115,5 +115,5 @@ e_fine = interpolate(e_coarse)
 # 6. Correct solution
 u_corrected = u_smooth + e_fine
 
-# (Optional) 7. Post-smoothing
+# 7. Post-smoothing
 _, u_final, _ = GS1D(f, u_corrected, N, iter, h)
