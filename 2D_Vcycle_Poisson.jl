@@ -97,6 +97,7 @@ end
 #-----------------------------------------
 function vcycle(u, f, h, level, maxlevel, nu1, nu2)
     N = size(u, 1)
+    println("V-cycle Level: $level, Grid Size: $N")
 
     if level == maxlevel
         u = smooth(u, f, h, 50)  # coarse grid solve
@@ -128,9 +129,99 @@ function vcycle(u, f, h, level, maxlevel, nu1, nu2)
 
     # 6. Post-smoothing
     u = smooth(u, f, h, nu2)
+    println("V-cycle Level: $level, Residual Norm: ", norm(r))
 
     return u
 end
+
+function wcycle(u, f, h, level, maxlevel, nu1, nu2)
+    N = size(u, 1)
+    println("W-cycle Level: $level, Grid Size: $N")
+
+    if level == maxlevel
+        u = smooth(u, f, h, 50)  # coarse grid solve
+        return u
+    end
+
+    # 1. Pre-smoothing
+    u = smooth(u, f, h, nu1)
+
+    # 2. Compute residual
+    r = residual(u, f, h)
+
+    # 3. Restrict residual to coarse grid
+    r_c = restrict(r)
+    Nc = size(r_c, 1)
+    h_c = 2h
+
+    # 4. Solve error equation recursively (W-cycle: two recursive calls)
+    e_c = zeros(Nc, Nc)
+    e_c = wcycle(e_c, r_c, h_c, level + 1, maxlevel, nu1, nu2)
+    e_c = wcycle(e_c, r_c, h_c, level + 1, maxlevel, nu1, nu2)
+
+    # 5. Interpolate and correct
+    e_f = interpolate(e_c)
+    e_f[1, :] .= 0.0
+    e_f[end, :] .= 0.0
+    e_f[:, 1] .= 0.0
+    e_f[:, end] .= 0.0
+    u += e_f
+
+    # 6. Post-smoothing
+    u = smooth(u, f, h, nu2)
+    println("W-cycle Level: $level, Residual Norm: ", norm(r))
+
+    return u
+end
+
+function fcycle(u, f, h, level, maxlevel, nu1, nu2, is_first=true)
+    N = size(u, 1)
+    println("F-cycle Level: $level, Grid Size: $N")
+
+    if level == maxlevel
+        u = smooth(u, f, h, 50)  # coarse grid solve
+        return u
+    end
+
+    # 1. Pre-smoothing
+    u = smooth(u, f, h, nu1)
+
+    # 2. Compute residual
+    r = residual(u, f, h)
+
+    # 3. Restrict residual to coarse grid
+    r_c = restrict(r)
+    Nc = size(r_c, 1)
+    h_c = 2h
+
+    # 4. Solve error equation recursively
+    e_c = zeros(Nc, Nc)
+
+    if is_first
+        # For first call: go down twice like W-cycle
+        e_c = fcycle(e_c, r_c, h_c, level + 1, maxlevel, nu1, nu2, true)
+        e_c = fcycle(e_c, r_c, h_c, level + 1, maxlevel, nu1, nu2, false)
+    else
+        # After first call: V-cycle behavior
+        e_c = fcycle(e_c, r_c, h_c, level + 1, maxlevel, nu1, nu2, false)
+    end
+
+    # 5. Interpolate and correct
+    e_f = interpolate(e_c)
+    e_f[1, :] .= 0.0
+    e_f[end, :] .= 0.0
+    e_f[:, 1] .= 0.0
+    e_f[:, end] .= 0.0
+    u += e_f
+
+    # 6. Post-smoothing
+    u = smooth(u, f, h, nu2)
+    println("F-cycle Level: $level, Residual Norm: ", norm(r))
+
+    return u
+end
+
+
 
 #-----------------------------------------
 function multigrid(f, N, h, vcycles, nu1, nu2)
@@ -139,7 +230,7 @@ function multigrid(f, N, h, vcycles, nu1, nu2)
     resvec = zeros(vcycles)
 
     for v = 1:vcycles
-        u = vcycle(u, f, h, 1, maxlevel, nu1, nu2)
+        u = fcycle(u, f, h, 1, maxlevel, nu1, nu2)
         r = residual(u, f, h)
         resvec[v] = norm(r)
         println("Cycle $v: Residual = ", @sprintf("%.2e", resvec[v]))
@@ -152,9 +243,9 @@ end
 function main()
     N = 257  # Must be 2^k + 1
     h = 1.0 / (N - 1)
-    vcycles = 10
-    nu1 = 3
-    nu2 = 3
+    vcycles = 1
+    nu1 = 5
+    nu2 = 5
 
     f = rhs(N, h)
     u_exact = exact(N, h)
@@ -164,7 +255,7 @@ function main()
     y = range(0, 1, length=N)
 
     surface(x, y, u, xlabel="x", ylabel="y", title="Recursive Multigrid Solution")
-    # plot(resvec, yscale=:log10, xlabel="V-cycle", ylabel="Residual", title="Residual Convergence")
+    #plot(resvec, yscale=:log10, xlabel="V-cycle", ylabel="Residual", title="Residual Convergence")
 end
 
 main()
