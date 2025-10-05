@@ -9,7 +9,7 @@ function rhs(N, h)
         y = (j - 1) * h
         for i in 1:N
             x = (i - 1) * h
-            f[i, j] = 4π^2 * sin(2π * x) * sin(2π * y)
+            f[i, j] = -8π^2 * sin(2π * x) * sin(2π * y)
         end
     end
     return f
@@ -21,7 +21,7 @@ function exact(N, h)
         y = (j - 1) * h
         for i in 1:N
             x = (i - 1) * h
-            uex[i, j] = sin(π * x) * sin(π * y)
+            uex[i, j] = sin(2π * x) * sin(2π * y)
         end
     end
     return uex
@@ -243,7 +243,7 @@ end
 function main()
     N = 257  # Must be 2^k + 1
     h = 1.0 / (N - 1)
-    vcycles = 1
+    vcycles = 10
     nu1 = 5
     nu2 = 5
 
@@ -254,8 +254,9 @@ function main()
     x = range(0, 1, length=N)
     y = range(0, 1, length=N)
 
-    surface(x, y, u, xlabel="x", ylabel="y", title="Recursive Multigrid Solution")
+    surface(x, y, u-u_exact, xlabel="x", ylabel="y", title="Recursive Multigrid Solution")
     #plot(resvec, yscale=:log10, xlabel="V-cycle", ylabel="Residual", title="Residual Convergence")
+    
 end
 
 main()
