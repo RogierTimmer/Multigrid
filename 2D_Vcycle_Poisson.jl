@@ -1,6 +1,7 @@
 using LinearAlgebra
 using Printf
 using Plots
+using Logging
 
 #-----------------------------------------
 function stencil(u, i, j, h)
@@ -102,7 +103,7 @@ end
 #-----------------------------------------
 function vcycle(u, f, h, level, maxlevel, nu1, nu2)
     N = size(u, 1)
-    println("V-cycle Level: $level, Grid Size: $N")
+    @info "V-cycle Level: $level, Grid Size: $N"
 
     if level == maxlevel
         u = smooth(u, f, h, 50)  # coarse grid solve
@@ -134,14 +135,14 @@ function vcycle(u, f, h, level, maxlevel, nu1, nu2)
 
     # 6. Post-smoothing
     u = smooth(u, f, h, nu2)
-    println("V-cycle Level: $level, Residual Norm: ", norm(r))
+    @info "V-cycle Level: $level, Residual Norm: ", norm(r)
 
     return u
 end
 
 function wcycle(u, f, h, level, maxlevel, nu1, nu2)
     N = size(u, 1)
-    println("W-cycle Level: $level, Grid Size: $N")
+    @info "W-cycle Level: $level, Grid Size: $N"
 
     if level == maxlevel
         u = smooth(u, f, h, 50)  # coarse grid solve
@@ -174,14 +175,14 @@ function wcycle(u, f, h, level, maxlevel, nu1, nu2)
 
     # 6. Post-smoothing
     u = smooth(u, f, h, nu2)
-    println("W-cycle Level: $level, Residual Norm: ", norm(r))
+    @info "W-cycle Level: $level, Residual Norm: ", norm(r)
 
     return u
 end
 
-function fcycle(u, f, h, level, maxlevel, nu1, nu2, is_first=true)
+function fcycle(u, f, h, level::Int, maxlevel::Int, nu1::Int, nu2::Int, is_first=true)
     N = size(u, 1)
-    println("F-cycle Level: $level, Grid Size: $N")
+    @info "F-cycle Level: $level, Grid Size: $N"
 
     if level == maxlevel
         u = smooth(u, f, h, 50)  # coarse grid solve
@@ -221,7 +222,7 @@ function fcycle(u, f, h, level, maxlevel, nu1, nu2, is_first=true)
 
     # 6. Post-smoothing
     u = smooth(u, f, h, nu2)
-    println("F-cycle Level: $level, Residual Norm: ", norm(r))
+    @info "F-cycle Level: $level, Residual Norm: ", norm(r)
 
     return u
 end
@@ -238,7 +239,7 @@ function multigrid(f, N, h, vcycles, nu1, nu2)
         u = fcycle(u, f, h, 1, maxlevel, nu1, nu2)
         r = residual(u, f, h)
         resvec[v] = norm(r)
-        println("Cycle $v: Residual = ", @sprintf("%.2e", resvec[v]))
+        @info "Cycle $v: Residual = ", @sprintf("%.2e", resvec[v])
     end
 
     return u, resvec
@@ -246,7 +247,7 @@ end
 
 #-----------------------------------------
 function main()
-    N = 1025  # Must be 2^k + 1
+    N = 129  # Must be 2^k + 1
     h = 1.0 / (N - 1)
     vcycles = 10
     nu1 = 5
@@ -261,7 +262,7 @@ function main()
 
     #surface(x, y, u-u_exact, xlabel="x", ylabel="y", title="Recursive Multigrid error")
     #plot(resvec, yscale=:log10, xlabel="V-cycle", ylabel="Residual", title="Residual Convergence")
-    plot(1:vcycles, resvec, yscale=:log10, xlabel="F-cycle", ylabel="Residual Norm", title="Residual Convergence Over V-cycles", marker=:circle, grid=true)
+    #plot(1:length(resvec), resvec, yscale=:log10, xlabel="F-cycle", ylabel="Residual Norm", title="Residual Convergence Over V-cycles", marker=:circle, grid=true)
 
 end
 
