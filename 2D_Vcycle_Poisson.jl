@@ -3,6 +3,11 @@ using Printf
 using Plots
 
 #-----------------------------------------
+function stencil(u, i, j, h)
+    return (u[i+1, j] + u[i-1, j] + u[i, j+1] + u[i, j-1] - 4u[i, j]) / h^2
+end
+
+#-----------------------------------------
 function rhs(N, h)
     f = zeros(N, N)
     for j in 1:N
@@ -33,7 +38,7 @@ function residual(u, f, h)
     r = zeros(N, N)
     for j in 2:N-1
         for i in 2:N-1
-            r[i, j] = f[i, j] - (u[i+1,j] + u[i-1,j] + u[i,j+1] + u[i,j-1] - 4u[i,j]) / h^2
+            r[i, j] = f[i, j] - stencil(u, i, j, h)
         end
     end
     return r
@@ -241,7 +246,7 @@ end
 
 #-----------------------------------------
 function main()
-    N = 257  # Must be 2^k + 1
+    N = 1025  # Must be 2^k + 1
     h = 1.0 / (N - 1)
     vcycles = 10
     nu1 = 5
@@ -254,9 +259,10 @@ function main()
     x = range(0, 1, length=N)
     y = range(0, 1, length=N)
 
-    surface(x, y, u-u_exact, xlabel="x", ylabel="y", title="Recursive Multigrid Solution")
+    #surface(x, y, u-u_exact, xlabel="x", ylabel="y", title="Recursive Multigrid error")
     #plot(resvec, yscale=:log10, xlabel="V-cycle", ylabel="Residual", title="Residual Convergence")
-    
+    plot(1:vcycles, resvec, yscale=:log10, xlabel="F-cycle", ylabel="Residual Norm", title="Residual Convergence Over V-cycles", marker=:circle, grid=true)
+
 end
 
 main()
