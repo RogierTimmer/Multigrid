@@ -236,7 +236,7 @@ function multigrid(f, N, h, vcycles, nu1, nu2)
     resvec = zeros(vcycles)
 
     for v = 1:vcycles
-        u = fcycle(u, f, h, 1, maxlevel, nu1, nu2)
+        u = vcycle(u, f, h, 1, maxlevel, nu1, nu2)
         r = residual(u, f, h)
         resvec[v] = norm(r)
         @info "Cycle $v: Residual = ", @sprintf("%.2e", resvec[v])
@@ -247,7 +247,7 @@ end
 
 #-----------------------------------------
 function main()
-    N = 129  # Must be 2^k + 1
+    N = 1025  # Must be 2^k + 1
     h = 1.0 / (N - 1)
     vcycles = 10
     nu1 = 5
@@ -260,7 +260,7 @@ function main()
     x = range(0, 1, length=N)
     y = range(0, 1, length=N)
 
-    #surface(x, y, u-u_exact, xlabel="x", ylabel="y", title="Recursive Multigrid error")
+    surface(x, y, u-u_exact, xlabel="x", ylabel="y", title="Recursive Multigrid error")
     #plot(resvec, yscale=:log10, xlabel="V-cycle", ylabel="Residual", title="Residual Convergence")
     #plot(1:length(resvec), resvec, yscale=:log10, xlabel="F-cycle", ylabel="Residual Norm", title="Residual Convergence Over V-cycles", marker=:circle, grid=true)
 
