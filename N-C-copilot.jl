@@ -7,8 +7,24 @@ using Plots
 function compute_div(u, h)
     N = size(u, 1)
     div = zeros(N, N)
-    for j in 2:N-1, i in 2:N-1
-        div[i,j] = (u[i+1,j,1] - u[i-1,j,1])/(2h) + (u[i,j+1,2] - u[i,j-1,2])/(2h)
+    for i in 1:N, j in 1:N
+        # x-derivative
+        if i == 1
+            dudx = (u[i+1,j,1] - u[i,j,1]) / h  # forward
+        elseif i == N
+            dudx = (u[i,j,1] - u[i-1,j,1]) / h  # backward
+        else
+            dudx = (u[i+1,j,1] - u[i-1,j,1]) / (2h)
+        end
+        # y-derivative
+        if j == 1
+            dvdy = (u[i,j+1,2] - u[i,j,2]) / h  # forward
+        elseif j == N
+            dvdy = (u[i,j,2] - u[i,j-1,2]) / h  # backward
+        else
+            dvdy = (u[i,j+1,2] - u[i,j-1,2]) / (2h)
+        end
+        div[i,j] = dudx + dvdy
     end
     return div
 end
@@ -19,17 +35,40 @@ function block_jacobi_elasticity(U, F, h, λ, μ, iters; ω=0.8)
     for _ in 1:iters
         Uold = copy(U)
         div = compute_div(Uold, h)
-        for j in 2:N-1, i in 2:N-1
-            lap_u1 = (Uold[i+1,j,1] + Uold[i-1,j,1] + Uold[i,j+1,1] + Uold[i,j-1,1] - 4 * Uold[i,j,1]) / h^2
-            lap_u2 = (Uold[i+1,j,2] + Uold[i-1,j,2] + Uold[i,j+1,2] + Uold[i,j-1,2] - 4 * Uold[i,j,2]) / h^2
-            ddiv_dx = (div[i+1,j] - div[i-1,j]) / (2h)
-            ddiv_dy = (div[i,j+1] - div[i,j-1]) / (2h)
+        for j in 1:N, i in 1:N
+            # Laplacians
+            if (i == 1 || i == N || j == 1 || j == N)
+                lap_u1 = 0.0
+                lap_u2 = 0.0
+            else
+                lap_u1 = (Uold[i+1,j,1] + Uold[i-1,j,1] + Uold[i,j+1,1] + Uold[i,j-1,1] - 4 * Uold[i,j,1]) / h^2
+                lap_u2 = (Uold[i+1,j,2] + Uold[i-1,j,2] + Uold[i,j+1,2] + Uold[i,j-1,2] - 4 * Uold[i,j,2]) / h^2
+            end
+            # Derivatives of divergence
+            if i == 1
+                ddiv_dx = (div[i+1,j] - div[i,j]) / h
+            elseif i == N
+                ddiv_dx = (div[i,j] - div[i-1,j]) / h
+            else
+                ddiv_dx = (div[i+1,j] - div[i-1,j]) / (2h)
+            end
+            if j == 1
+                ddiv_dy = (div[i,j+1] - div[i,j]) / h
+            elseif j == N
+                ddiv_dy = (div[i,j] - div[i,j-1]) / h
+            else
+                ddiv_dy = (div[i,j+1] - div[i,j-1]) / (2h)
+            end
             a_diag = -4μ/h^2
-            U[i,j,1] = (1-ω)*Uold[i,j,1] + ω * (F[i,j,1] - (μ * lap_u1 + (λ+μ)*ddiv_dx) + a_diag*Uold[i,j,1]) / a_diag
-            U[i,j,2] = (1-ω)*Uold[i,j,2] + ω * (F[i,j,2] - (μ * lap_u2 + (λ+μ)*ddiv_dy) + a_diag*Uold[i,j,2]) / a_diag
+            if (i == 1 || i == N || j == 1 || j == N)
+                # Dirichlet BCs: keep at zero (could skip update or explicitly set to zero)
+                U[i,j,1] = 0.0
+                U[i,j,2] = 0.0
+            else
+                U[i,j,1] = (1-ω)*Uold[i,j,1] + ω * (F[i,j,1] - (μ * lap_u1 + (λ+μ)*ddiv_dx) + a_diag*Uold[i,j,1]) / a_diag
+                U[i,j,2] = (1-ω)*Uold[i,j,2] + ω * (F[i,j,2] - (μ * lap_u2 + (λ+μ)*ddiv_dy) + a_diag*Uold[i,j,2]) / a_diag
+            end
         end
-        # Dirichlet BCs
-        U[1,:,:] .= 0.0; U[end,:,:] .= 0.0; U[:,1,:] .= 0.0; U[:,end,:] .= 0.0
     end
     return U
 end
@@ -38,11 +77,30 @@ function apply_operator(u, h, λ, μ)
     N = size(u, 1)
     Lu = zeros(N, N, 2)
     div = compute_div(u, h)
-    for j in 2:N-1, i in 2:N-1
-        lap_u1 = (u[i+1,j,1] + u[i-1,j,1] + u[i,j+1,1] + u[i,j-1,1] - 4 * u[i,j,1]) / h^2
-        lap_u2 = (u[i+1,j,2] + u[i-1,j,2] + u[i,j+1,2] + u[i,j-1,2] - 4 * u[i,j,2]) / h^2
-        ddiv_dx = (div[i+1,j] - div[i-1,j]) / (2h)
-        ddiv_dy = (div[i,j+1] - div[i,j-1]) / (2h)
+    for i in 1:N, j in 1:N
+        # Laplacians (for boundaries, you may want one-sided, but often set to zero for Dirichlet BC)
+        if (i == 1 || i == N || j == 1 || j == N)
+            lap_u1 = 0.0
+            lap_u2 = 0.0
+        else
+            lap_u1 = (u[i+1,j,1] + u[i-1,j,1] + u[i,j+1,1] + u[i,j-1,1] - 4 * u[i,j,1]) / h^2
+            lap_u2 = (u[i+1,j,2] + u[i-1,j,2] + u[i,j+1,2] + u[i,j-1,2] - 4 * u[i,j,2]) / h^2
+        end
+        # Derivatives of divergence
+        if i == 1
+            ddiv_dx = (div[i+1,j] - div[i,j]) / h
+        elseif i == N
+            ddiv_dx = (div[i,j] - div[i-1,j]) / h
+        else
+            ddiv_dx = (div[i+1,j] - div[i-1,j]) / (2h)
+        end
+        if j == 1
+            ddiv_dy = (div[i,j+1] - div[i,j]) / h
+        elseif j == N
+            ddiv_dy = (div[i,j] - div[i,j-1]) / h
+        else
+            ddiv_dy = (div[i,j+1] - div[i,j-1]) / (2h)
+        end
         Lu[i,j,1] = μ * lap_u1 + (λ + μ) * ddiv_dx
         Lu[i,j,2] = μ * lap_u2 + (λ + μ) * ddiv_dy
     end
@@ -131,7 +189,7 @@ function rhs(N, h)
 end
 
 function main()
-    N = 9  # must be 2^k+1 for full multigrid
+    N = 2049  # must be 2^k+1 for full multigrid
     h = 1.0 / (N - 1)
     λ = 1.0
     μ = 1.0
